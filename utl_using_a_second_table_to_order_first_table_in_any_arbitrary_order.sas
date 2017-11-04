@@ -197,3 +197,104 @@ Up to 40 obs WORK.WANT total obs=1
 Obs    o1    o2    o3    o4    o5    o6    o7    o8    o9
 
  1      1     2     3     4     5     6     7     8     9
+ 
+ 
+ ==========================================================
+ ==========================================================
+ 
+ Bill Fish Solutions on SAS-L
+ wdharris31416@hotmail.com
+ 
+ A pedestrian view of the question.
+
+Since one of the datasets is one of indices, the question involves matrix operations (implicitly or explicitly).
+There is some ambiguity in the question. Here it appears that indexing goes from (top-to-bottom) then (left-to-right). It could be (left-to-right) then (top-to-bottom).
+
+**********************************;
+**** input tables t_a t_index ****;
+**********************************;
+data t_a;
+input x1 x2 x3;
+cards;
+33 66 99
+22 55 88
+11 44 77
+;
+run;
+
+data t_index;
+input i1 i2 i3;
+cards;
+3 6 9
+2 5 8
+1 4 7
+;
+run;
+
+**********************************
+2 different solutions:
+a- one with concatenated strings
+b- one using hash tables
+**********************************;
+
+******************************;
+**** concatenated strings ****;
+******************************;
+data t_want(keep=z:);
+   length q_x q_i $400.;
+   array x(3);
+   array i(3);
+   array z(3);
+
+   do until (eofa);
+      set t_a;
+      set t_index end=eofa;
+      q_x = catx(',',q_x, of x(*));
+      q_i = catx(',',q_i, of i(*));
+   end;
+   q_x = compress(q_x||',');
+   q_i = compress(q_i||',');
+
+   do k = 1,4,7, 2,5,8, 3,6,9;
+      kc = sum(1,mod(kc,3));
+      fi = findw(q_i, compress(put(k,3.)) ,',','i e');
+      z(kc) = scan(q_x, fi);
+      if kc = 3 then output;
+   end;
+run;
+
+
+****************************;
+**** using hash objects ****;
+****************************;
+data t_want(keep=z:);
+   array x(3);
+   array i(3);
+   array z(3);
+
+   if _N_=1 then do;
+      declare hash zSort(multidata:'n', ordered:'a');
+      zSort.defineKey('aa');
+      zSort.defineData('aa','bb');
+      zSort.defineDone();
+   end;
+   ******************************;
+   **** load the hash object ****;
+   ******************************;
+   do until (eofa);
+      set t_a;
+      set t_index end=eofa;
+      do k = 1 to dim(x);
+         aa=i(k); bb=x(k); zSort.ref();
+      end;
+   end;
+   *************************;
+   **** time for output ****;
+   *************************;
+   do aa = 1,4,7, 2,5,8, 3,6,9;
+      kc = sum(1,mod(kc,3));
+      rc = zSort.find();
+      z(kc) = bb;
+      if kc = 3 then output;
+   end;
+run;
